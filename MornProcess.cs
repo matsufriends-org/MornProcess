@@ -1,12 +1,14 @@
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace MornProcess
 {
-    public sealed class MornProcess
+    public sealed class MornProcess : IDisposable
     {
         public readonly string WorkingDirectory;
         private readonly Process _process;
@@ -43,15 +45,20 @@ namespace MornProcess
             return new MornProcess(path, fileName);
         }
 
-        public async UniTask<string> ExecuteAsync(string command)
+        public async UniTask<string> ExecuteAsync(string command, CancellationToken ct = default)
         {
             _process.StartInfo.Arguments = command;
             _process.Start();
-            await UniTask.WaitUntil(() => _process.HasExited);
+            await UniTask.WaitUntil(() => _process.HasExited, cancellationToken: ct);
             var output = await _process.StandardOutput.ReadToEndAsync();
             var result = output.TrimEnd('\n');
-            MornProcessGlobal.Log($"Command: git {command}\nResult: {result}");
+            MornProcessGlobal.Log($"コマンド: {_process.StartInfo.FileName} {command}\n実行結果: {result}");
             return result;
+        }
+
+        public void Dispose()
+        {
+            _process?.Dispose();
         }
     }
 }
